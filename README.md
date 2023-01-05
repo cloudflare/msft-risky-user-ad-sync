@@ -1,15 +1,15 @@
-# 👷 `worker-template` Hello World
+# Azure Risky User to Azure Group Syncronization
 
-A template for kick starting a Cloudflare worker project.
+This repository deploys a Cloudflare Scheduled Worker which synchronises users flagged by Azure's Risky User API into Groups based on risk level. These groups can be applied to Cloudflare Zero Trust policies to isolate application access.
 
-[`index.js`](https://github.com/cloudflare/worker-template/blob/master/index.js) is the content of the Workers script.
+## Group names
+- IdentityProtection-RiskyUser-RiskLevel-high
+- IdentityProtection-RiskyUser-RiskLevel-medium
+- IdentityProtection-RiskyUser-RiskLevel-low
 
-#### Wrangler
+# Installation
 
-To generate using [wrangler](https://github.com/cloudflare/wrangler)
-
-```
-wrangler generate projectname https://github.com/cloudflare/worker-template
-```
-
-Further documentation for Wrangler can be found [here](https://developers.cloudflare.com/workers/tooling/wrangler).
+- Install Wrangler CLI: https://developers.cloudflare.com/workers/wrangler/install-and-update/
+- `wrangler login` 
+- `wrangler publish --var AZURE_AD_TENANT_ID:YOUR_AZURE_TENANT_ID --var AZURE_AD_CLIENT_ID:YOUR_AZURE_CLIENT_ID`
+- `wrangler secret put AZURE_AD_CLIENT_SECRET`

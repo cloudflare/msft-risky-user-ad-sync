@@ -4,6 +4,10 @@ addEventListener("scheduled", (event) => {
 
 async function fetchAzureADToken() {
 
+  if (!AZURE_AD_TENANT_ID) throw new Error('AZURE_AD_TENANT_ID environment variable is not defined')
+  if (!AZURE_AD_CLIENT_ID) throw new Error('AZURE_AD_CLIENT_ID environment variable is not defined')
+  if (!AZURE_AD_CLIENT_SECRET) throw new Error('AZURE_AD_CLIENT_SECRET environment variable is not defined')
+
   var tokenRequestURL = new URL('https://login.microsoftonline.com/' + AZURE_AD_TENANT_ID + '/oauth2/v2.0/token'); // https://learn.microsoft.com/en-us/graph/auth-v2-service
 
   tokenRequestBody = [];
@@ -35,22 +39,10 @@ async function fetchAzureADGraph(method, url, body) {
   var token = await fetchAzureADToken();
   request.headers.set('Content-Type', 'application/json');
   request.headers.set('Authorization', 'Bearer ' + token.access_token);
-  var response = fetch(request);
+  var response = await fetch(request);
+  if (response.status == 403) throw new Error(await response.text())
   return response;
 }
-
-// async function addUsersToGroup(groupId, userIds) { // https://learn.microsoft.com/en-us/graph/api/group-post-members?view=graph-rest-1.0&tabs=http
-//   // Split every 20 users
-// }
-
-// async function getGroups() {
-//   var graphRequest = new URL('https://graph.microsoft.com/v1.0/groups');
-//   var getGroupsRequest = new Request(graphRequest, {
-//     "method" : "GET"
-//   });
-//   var getGroupsResponse = await fetchAzureADGraph('GET', 'https://graph.microsoft.com/v1.0/groups');
-//   return getRiskyUsersResponse.json();
-// }
 
 async function getRiskyUsers(riskLevel) {
   var riskyUsersReq = await fetchAzureADGraph('GET', "https://graph.microsoft.com/v1.0/identityProtection/riskyUsers?$filter=riskLevel eq '" + riskLevel + "'");
@@ -106,7 +98,6 @@ async function getGroupMembers(id) {
 }
 
 async function addMembers(groupId, userIds) {
-  // TODO: Limited to 20 Users, needs chunking: https://learn.microsoft.com/en-us/graph/api/group-post-members?view=graph-rest-1.0&tabs=http
   var members = userIds.map(function(user) {
     return "https://graph.microsoft.com/v1.0/directoryObjects/" + user
   })
@@ -114,7 +105,7 @@ async function addMembers(groupId, userIds) {
   console.log('Adding members to group ' + groupId);
   var addMembersReq = await fetchAzureADGraph('PATCH', 'https://graph.microsoft.com/v1.0/groups/' + groupId, JSON.stringify({"members@odata.bind": members}));
   if (addMembersReq.status == 204) {
-    console.log('Successfully added users to group', userIds.join(','))
+    console.log('Successfully added user(s) to group.', userIds.join(','))
   } else {
     console.error('An error occurred while adding users to group.', await addMembersReq.json());
   }
@@ -126,24 +117,24 @@ async function removeMembers(groupId, userIds) {
     return "https://graph.microsoft.com/v1.0/directoryObjects/" + user
   })
   var removeMembersReq = await fetchAzureADGraph('DELETE', 'https://graph.microsoft.com/v1.0/groups/' + groupId, JSON.stringify({"members@odata.bind": members}));
-  // console.log(removeMembersReq.status)
-  // if (removeMembersReq.stat)
-  // console.log(removeMembers);
+  if (removeMembersReq.status == 204) {
+    console.log('Successfully removed user(s) from group.', userIds.join(','))
+  } else {
+    console.error('An error occurred while removing users to group.', await removeMembersReq.json());
+  }
 }
 
 async function syncGroup(riskLevel) {
 
-  console.log('Started synchronizing ' + riskLevel + ' risk users.')
-  
+  console.log('Started synchronizing ' + riskLevel + ' risky users.')
   var riskyUsers = await getRiskyUsers(riskLevel);
   var group = await provisionGroup('IdentityProtection-RiskyUser-RiskLevel-' + riskLevel);
-
   var groupMembers = await getGroupMembers(group.id);
 
   var staleMembers = groupMembers.filter(function(user) {
     return riskyUsers.indexOf(user) === -1;
   });
-
+  
   var newMembers = riskyUsers.filter(function(user) {
     return groupMembers.indexOf(user) === -1;
   });
