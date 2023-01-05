@@ -1,0 +1,15 @@
+name = "msft-risky-user-ad-sync"
+
+compatibility_date = "2023-01-04"
+
+main = "src/index.js"
+
+workers_dev = true
+
+[triggers]
+crons = ["* * * * *"]
+
+[vars]
+AZURE_AD_TENANT_ID = ""
+AZURE_AD_CLIENT_ID = ""
+AZURE_AD_CLIENT_SECRET = ""
